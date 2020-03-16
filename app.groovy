@@ -28,7 +28,7 @@ preferences {
 
     section (hideable: true, hidden: true, "Advanced Settings") {
         input "endpoint", "string", title: "Al Adhan endpoint URL", required: true, defaultValue: "https://api.aladhan.com/v1/timings"
-        input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: new SimpleDateFormat().format(toDate("00:00"))
+        input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: getDefaultRefreshTime()
         input "debugLoggingEnabled", "bool", title: "Enable Debug Logging", defaultValue: false
     }
 }
@@ -150,4 +150,12 @@ def log(message) {
     if (debugLoggingEnabled) {
         log.debug message
     }
+}
+
+def getDefaultRefreshTime() {
+    // offset by 30 minutes from midnight to allow backend ample time
+    // to resolve to the new date
+    // jitter to distribute load
+    def jitter = new Random().nextInt(10)
+    return new SimpleDateFormat().format(toDate("00:${30 + jitter}"))
 }
