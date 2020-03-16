@@ -51,45 +51,50 @@ def initialize() {
 }
 
 def refreshTimings() {
-    try {
-        def params = [
-            uri: endpoint,
-            query: [
-                latitude: location.latitude,
-                longitude: location.longitude,
-                method: 2 // ISNA
-            ],
-            contentType: "application/json",
-            headers: [
-                "User-Agent": "Hubitat/${location.hub.firmwareVersionString} (${app.getLabel()} app)"
-            ]
+    def params = [
+        uri: endpoint,
+        query: [
+            latitude: location.latitude,
+            longitude: location.longitude,
+            method: 2 // ISNA
+        ],
+        contentType: "application/json",
+        headers: [
+            "User-Agent": "Hubitat/${location.hub.firmwareVersionString} (${app.getLabel()} app)"
         ]
-        log("Refreshing timings with httpGet parameters: ${params}")
+    ]
 
-        httpGet(params) { response ->
-            log("Received response data: ${response?.data}")
-            def timings = response?.data?.data?.timings
-            def playFunctions = [
-                Fajr: playFajrAdhan,
-                Dhuhr: playDhuhrAdhan,
-                Asr: playAsrAdhan,
-                Maghrib: playMaghribAdhan,
-                Isha: playIshaAdhan
-            ]
+    log("Refreshing timings with parameters: ${params}")
 
-            playFunctions.each { name, func ->
-                def date = toDate(timings[name])
-                log("Converted ${name} prayer time to date: ${date}")
-                if (new Date().before(date)) {
-                    log("Scheduling ${name} prayer adhan...")
-                    runOnce(date, func)
-                } else {
-                    log("Time for ${name} prayer passed, not scheduling adhan for today")
-                }
+    asynchttpGet(responseHandler, params)
+}
+
+def responseHandler(response, _) {
+    if (!response.hasError()) {
+        def responseData = response.getJson()
+        log("Received response data: ${responseData}")
+
+        def timings = responseData?.data?.timings
+        def playFunctions = [
+            Fajr: playFajrAdhan,
+            Dhuhr: playDhuhrAdhan,
+            Asr: playAsrAdhan,
+            Maghrib: playMaghribAdhan,
+            Isha: playIshaAdhan
+        ]
+
+        playFunctions.each { name, func ->
+            def date = toDate(timings[name])
+            log("Converted ${name} prayer time to date: ${date}")
+            if (new Date().before(date)) {
+                log("Scheduling ${name} prayer adhan...")
+                runOnce(date, func)
+            } else {
+                log("Time for ${name} prayer passed, not scheduling adhan for today")
             }
         }
-    } catch (e) {
-        log.error "Error refreshing timings: ${e}"
+    } else {
+        log.error "Error refreshing timings: ${response.getErrorMessage()}"
         if (++state.failures >= 3) {
             log("Failed ${state.failures} times; resetting failure count and sending warning via TTS to: ${speakers}")
             state.failures = 0
