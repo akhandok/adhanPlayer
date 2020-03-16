@@ -27,6 +27,7 @@ preferences {
     }
 
     section (hideable: true, hidden: true, "Advanced Settings") {
+        input "method", "enum", title: "Prayer times calculation method", defaultValue: "Islamic Society of North America", options: getMethodsMap().keySet() as List
         input "endpoint", "string", title: "Al Adhan endpoint URL", required: true, defaultValue: "https://api.aladhan.com/v1/timings"
         input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: getDefaultRefreshTime()
         input "debugLoggingEnabled", "bool", title: "Enable Debug Logging", defaultValue: false
@@ -56,7 +57,7 @@ def refreshTimings() {
         query: [
             latitude: location.latitude,
             longitude: location.longitude,
-            method: 2 // ISNA
+            method: getMethodsMap()[method]
         ],
         contentType: "application/json",
         headers: [
@@ -163,4 +164,23 @@ def getDefaultRefreshTime() {
     // jitter to distribute load
     def jitter = new Random().nextInt(10)
     return new SimpleDateFormat().format(toDate("00:${30 + jitter}"))
+}
+
+def getMethodsMap() {
+    return [
+        "Shia Ithna-Ansari": 0,
+        "University of Islamic Sciences, Karachi": 1,
+        "Islamic Society of North America": 2,
+        "Muslim World League": 3,
+        "Umm Al-Qura University, Makkah": 4,
+        "Egyptian General Authority of Survey": 5,
+        "Institute of Geophysics, University of Tehran": 7,
+        "Gulf Region": 8,
+        "Kuwait": 9,
+        "Qatar": 10,
+        "Majlis Ugama Islam Singapura, Singapore": 11,
+        "Union Organization islamic de France": 12,
+        "Diyanet İşleri Başkanlığı, Turkey": 13,
+        "Spiritual Administration of Muslims of Russia": 14
+    ]
 }
