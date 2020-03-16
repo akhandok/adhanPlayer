@@ -1,4 +1,6 @@
 /**
+ * Source: https://github.com/akhandok/adhanPlayer
+ *
  * This app heavily depends upon (and assumes usage of): https://aladhan.com/prayer-times-api#GetTimings
  */
 
