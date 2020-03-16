@@ -4,6 +4,8 @@ Hubitat Adhan Player app designed to play the Adhan on Google Home speakers
 
 # How to install
 
+Be sure you have your speakers available as devices prior to installing this app (i.e. with Chromecast Integration).
+
 https://docs.hubitat.com/index.php?title=How_to_Install_Custom_Apps
 
 # Donate
