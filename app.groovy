@@ -138,11 +138,17 @@ def playIshaAdhan() {
 }
 
 def playTrack(track) {
-    speakers.each { speaker -> speaker.playTrack(track) }
+    speakers.each { speaker ->
+        speaker.initialize()
+        speaker.playTrack(track)
+    }
 }
 
 def speak(message) {
-    speakers.each { speaker -> speaker.speak(message) }
+    speakers.each { speaker ->
+        speaker.initialize()
+        speaker.speak(message)
+    }
 }
 
 def toDate(time) {
@@ -186,3 +192,4 @@ def getMethodsMap() {
         "Spiritual Administration of Muslims of Russia": 14
     ]
 }
+
