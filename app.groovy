@@ -46,6 +46,10 @@ def updated() {
 }
 
 def initialize() {
+    log.debug "Speakers $speakers have the following commands:"
+    speakers.each {
+        log.debug "$it: ${it.getSupportedCommands()}"
+    }
     state.failures = 0
 
     refreshTimings()
