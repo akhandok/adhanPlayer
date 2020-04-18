@@ -16,22 +16,35 @@ definition(
 )
 
 preferences {
-    section {
-        input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true
+    section ("Settings") {
+        input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
+
+        if (speakers) {
+            paragraph "<small><i><b>Note:</b> If playing custom MP3 files on the speaker(s) is not working, please consider enabling the TTS-only alert in the <b>Advanced Settings</b>.</i></small>"
+        }
+
+        input "shouldSendPushNotification", "bool", title: "Send push notifications?", submitOnChange: true
+
+        if (shouldSendPushNotification) {
+            input "notifier", "capability.notification", title: "Notification Device(s)", multiple: true, submitOnChange: true
+        }
     }
 
-    section (hideable: true, hidden: true, "Adhan Audio Selections") {
-        input "fajrAdhanURL", "string", title: "Fajr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/fajrAdhan.mp3"
-        input "dhuhrAdhanURL", "string", title: "Dhuhr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
-        input "asrAdhanURL", "string", title: "Asr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
-        input "maghribAdhanURL", "string", title: "Maghrib Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
-        input "ishaAdhanURL", "string", title: "Isha Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
+    if (!ttsOnly) {
+        section (hideable: true, hidden: true, "Adhan Audio Selections") {
+            input "fajrAdhanURL", "string", title: "Fajr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/fajrAdhan.mp3"
+            input "dhuhrAdhanURL", "string", title: "Dhuhr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
+            input "asrAdhanURL", "string", title: "Asr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
+            input "maghribAdhanURL", "string", title: "Maghrib Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
+            input "ishaAdhanURL", "string", title: "Isha Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
+        }
     }
 
-    section (hideable: true, hidden: true, "Advanced Settings") {
+    section (hideable: true, hidden: !ttsOnly, "Advanced Settings") {
         input "method", "enum", title: "Prayer times calculation method", defaultValue: "Islamic Society of North America", options: getMethodsMap().keySet() as List
         input "endpoint", "string", title: "Al Adhan endpoint URL", required: true, defaultValue: "https://api.aladhan.com/v1/timings"
         input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: getDefaultRefreshTime()
+        input "ttsOnly", "bool", title: "Only alert via TTS? (disables Adhan audio, useful if custom MP3 audio is not supported)", submitOnChange: true
         input "debugLoggingEnabled", "bool", title: "Enable Debug Logging", defaultValue: false
     }
 }
