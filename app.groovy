@@ -27,7 +27,7 @@ preferences {
         input "shouldSendPushNotification", "bool", title: "Send push notifications?", submitOnChange: true
 
         if (shouldSendPushNotification) {
-            input "notifier", "capability.notification", title: "Notification Device(s)", multiple: true, submitOnChange: true
+            input "notifier", "capability.notification", title: "Notification Device(s)", required: true, multiple: true, submitOnChange: true
         }
     }
 
