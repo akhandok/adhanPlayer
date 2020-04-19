@@ -128,10 +128,11 @@ def playMaghribAdhan(data) { playAdhan(data.name, data.track) }
 def playIshaAdhan(data)    { playAdhan(data.name, data.track) }
 
 def playAdhan(name, track) {
-    log("Playing ${name} adhan.")
+    def message = "Time for ${name} prayer."
+    log(message)
 
     if (shouldSendPushNotification) {
-        log("Sending push notifications with message: ${message} to ${notifier}")
+        log("Sending push notification \"${message}\" to ${notifier}")
         notifier.deviceNotification(message)
     }
 
