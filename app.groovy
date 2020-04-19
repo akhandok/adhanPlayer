@@ -46,7 +46,7 @@ preferences {
         input "endpoint", "string", title: "Al Adhan endpoint URL", required: true, defaultValue: "https://api.aladhan.com/v1/timings"
         input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: getDefaultRefreshTime()
         input "ttsOnly", "bool", title: "Only alert via TTS? (disables Adhan audio, useful if custom MP3 audio is not supported)", submitOnChange: true
-        input "debugLoggingEnabled", "bool", title: "Enable Debug Logging", defaultValue: false
+        input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
     }
 }
 
@@ -60,10 +60,6 @@ def updated() {
 }
 
 def initialize() {
-    log.debug "Speakers $speakers have the following commands:"
-    speakers.each {
-        log.debug "$it: ${it.getSupportedCommands()}"
-    }
     state.failures = 0
 
     refreshTimings()
@@ -91,35 +87,30 @@ def refreshTimings() {
 }
 
 def responseHandler(response, _) {
-    if (!response.hasError()) {
-        def responseData = response.getJson()
-        log("Received response data: ${responseData}")
-
-        def timings = responseData?.data?.timings
-        def playFunctions = [
-            Fajr: playFajrAdhan,
-            Dhuhr: playDhuhrAdhan,
-            Asr: playAsrAdhan,
-            Maghrib: playMaghribAdhan,
-            Isha: playIshaAdhan
-        ]
-
-        playFunctions.each { name, func ->
-            def date = toDate(timings[name])
-            log("Converted ${name} prayer time to date: ${date}")
-            if (new Date().before(date)) {
-                log("Scheduling ${name} prayer adhan...")
-                runOnce(date, func)
-            } else {
-                log("Time for ${name} prayer passed, not scheduling adhan for today")
-            }
-        }
-    } else {
+    if (response.hasError()) {
         log.error "Error refreshing timings: ${response.getErrorMessage()}"
         if (++state.failures >= 3) {
             log("Failed ${state.failures} times; resetting failure count and sending warning via TTS to: ${speakers}")
             state.failures = 0
             speak("Message from Hubitat! Multiple failed attempts to refresh Adhan timings!")
+        }
+
+        return
+    }
+
+    // TODO: error handling
+    def responseData = response.getJson()
+    log("Received response data: ${responseData}")
+
+    def timings = responseData.data.timings
+    getAdhanMap().each { name, adhan ->
+        def date = toDate(timings[name])
+        log("Converted ${name} prayer time to date: ${date}")
+        if (new Date().before(date)) {
+            log("Scheduling ${name} prayer adhan...")
+            runOnce(date, adhan.function, [data: [name: name, track: adhan.track]])
+        } else {
+            log("Time for ${name} prayer passed, not scheduling adhan for today")
         }
     }
 }
@@ -130,32 +121,29 @@ def responseHandler(response, _) {
  * at any given time (i.e. the same "play" function
  * cannot be scheduled for both Fajr and Dhuhr)
  */
-def playFajrAdhan() {
-    log("Playing Fajr adhan.")
-    playTrack(fajrAdhanURL)
-}
+def playFajrAdhan(data)    { playAdhan(data.name, data.track) }
+def playDhuhrAdhan(data)   { playAdhan(data.name, data.track) }
+def playAsrAdhan(data)     { playAdhan(data.name, data.track) }
+def playMaghribAdhan(data) { playAdhan(data.name, data.track) }
+def playIshaAdhan(data)    { playAdhan(data.name, data.track) }
 
-def playDhuhrAdhan() {
-    log("Playing Dhuhr adhan.")
-    playTrack(dhuhrAdhanURL)
-}
+def playAdhan(name, track) {
+    log("Playing ${name} adhan.")
 
-def playAsrAdhan() {
-    log("Playing Asr adhan.")
-    playTrack(asrAdhanURL)
-}
+    if (shouldSendPushNotification) {
+        log("Sending push notifications with message: ${message} to ${notifier}")
+        notifier.deviceNotification(message)
+    }
 
-def playMaghribAdhan() {
-    log("Playing Maghrib adhan.")
-    playTrack(maghribAdhanURL)
-}
-
-def playIshaAdhan() {
-    log("Playing Isha adhan.")
-    playTrack(ishaAdhanURL)
+    if (ttsOnly) {
+        speak("It is time for prayer.")
+    } else {
+        playTrack(track)
+    }
 }
 
 def playTrack(track) {
+    // TODO: error handling
     speakers.each { speaker ->
         speaker.initialize()
         speaker.playTrack(track)
@@ -163,6 +151,7 @@ def playTrack(track) {
 }
 
 def speak(message) {
+    // TODO: error handling
     speakers.each { speaker ->
         speaker.initialize()
         speaker.speak(message)
@@ -184,9 +173,20 @@ def log(message) {
     }
 }
 
+def getAdhanMap() {
+    def generator = { function, track -> [ function: function, track: track ] }
+    return [
+        Fajr: generator(playFajrAdhan, fajrAdhanURL),
+        Dhuhr: generator(playDhuhrAdhan, dhuhrAdhanURL),
+        Asr: generator(playAsrAdhan, asrAdhanURL),
+        Maghrib: generator(playMaghribAdhan, maghribAdhanURL),
+        Isha: generator(playIshaAdhan, ishaAdhanURL)
+    ]
+}
+
 def getDefaultRefreshTime() {
-    // offset by 30 minutes from midnight to allow backend ample time
-    // to resolve to the new date
+    // offset by 30 minutes from midnight to
+    // allow backend ample time to resolve to the new date
     // jitter to distribute load
     def jitter = new Random().nextInt(10)
     return new SimpleDateFormat().format(toDate("00:${30 + jitter}"))
