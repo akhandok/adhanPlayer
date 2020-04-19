@@ -87,31 +87,27 @@ def refreshTimings() {
 }
 
 def responseHandler(response, _) {
-    if (response.hasError()) {
-        log.error "Error refreshing timings: ${response.getErrorMessage()}"
-        if (++state.failures >= 3) {
-            log("Failed ${state.failures} times; resetting failure count and sending warning via TTS to: ${speakers}")
-            state.failures = 0
-            speak("Message from Hubitat! Multiple failed attempts to refresh Adhan timings!")
+    try {
+        if (response.hasError()) {
+            throw new Exception(response.getErrorMessage())
         }
 
-        return
-    }
+        def responseData = response.getJson()
+        log("Received response data: ${responseData}")
 
-    // TODO: error handling
-    def responseData = response.getJson()
-    log("Received response data: ${responseData}")
-
-    def timings = responseData.data.timings
-    getAdhanMap().each { name, adhan ->
-        def date = toDate(timings[name])
-        log("Converted ${name} prayer time to date: ${date}")
-        if (new Date().before(date)) {
-            log("Scheduling ${name} prayer adhan...")
-            runOnce(date, adhan.function, [data: [name: name, track: adhan.track]])
-        } else {
-            log("Time for ${name} prayer passed, not scheduling adhan for today")
+        def timings = responseData.data.timings
+        getAdhanMap().each { name, adhan ->
+            def date = toDate(timings[name])
+            log("Converted ${name} prayer time to date: ${date}")
+            if (new Date().before(date)) {
+                log("Scheduling ${name} prayer adhan...")
+                runOnce(date, adhan.function, [data: [name: name, track: adhan.track]])
+            } else {
+                log("Time for ${name} prayer passed, not scheduling adhan for today")
+            }
         }
+    } catch (e) {
+        recordFailure("Error refreshing timings: ${e}")
     }
 }
 
@@ -132,30 +128,38 @@ def playAdhan(name, track) {
     log(message)
 
     if (shouldSendPushNotification) {
-        log("Sending push notification \"${message}\" to ${notifier}")
-        notifier.deviceNotification(message)
+        try {
+            log("Sending push notification \"${message}\" to ${notifier}")
+            notifier.deviceNotification(message)
+        } catch (e) {
+            recordFailure("Error sending push notification \"${message}\" to ${notifier}")
+        }
     }
 
-    if (ttsOnly) {
-        speak("It is time for prayer.")
-    } else {
-        playTrack(track)
+    speakers.each { speaker ->
+        try {
+            if (speaker.hasCommand("initialize")) {
+                // call initialize() for Google speakers
+                // since they can get disconnected
+                speaker.initialize()
+            }
+
+            if (!ttsOnly && speaker.hasCommand("playTrack")) {
+                speaker.playTrack(track)
+            } else {
+                speaker.speak("It is time for prayer.")
+            }
+        } catch (e) {
+            recordFailure("Error playing track \"${track}\" or speaking message \"${message}\" on ${speaker}: ${e}")
+        }
     }
 }
 
-def playTrack(track) {
-    // TODO: error handling
-    speakers.each { speaker ->
-        speaker.initialize()
-        speaker.playTrack(track)
-    }
-}
-
-def speak(message) {
-    // TODO: error handling
-    speakers.each { speaker ->
-        speaker.initialize()
-        speaker.speak(message)
+def recordFailure(failureMessage) {
+    log.error "${app.getLabel()} failure: ${failureMessage}"
+    if (++state.failures >= 3) {
+        log.error "Failed ${state.failures} times; resetting failure count"
+        state.failures = 0
     }
 }
 
