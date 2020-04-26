@@ -17,21 +17,10 @@ definition(
 )
 
 preferences {
-    section ("Settings") {
-        input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
+    page(name: "settingsPage")
+    page(name: "adhanSettingsPage")
 
-        if (speakers) {
-            paragraph "<small><i><b>Note:</b> If playing custom MP3 files on the speaker(s) is not working, please consider enabling the TTS-only alert in the <b>Advanced Settings</b>.</i></small>"
-        }
-
-        input "shouldSendPushNotification", "bool", title: "Send push notifications?", submitOnChange: true
-
-        if (shouldSendPushNotification) {
-            input "notifier", "capability.notification", title: "Notification Device(s)", required: true, multiple: true, submitOnChange: true
-        }
-    }
-
-    if (!ttsOnly) {
+    /*if (!ttsOnly) {
         section (hideable: true, hidden: true, "Adhan Audio Selections") {
             input "fajrAdhanURL", "string", title: "Fajr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/fajrAdhan.mp3"
             input "dhuhrAdhanURL", "string", title: "Dhuhr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
@@ -47,6 +36,51 @@ preferences {
         input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: getDefaultRefreshTime()
         input "ttsOnly", "bool", title: "Only alert via TTS? (disables Adhan audio, useful if custom MP3 audio is not supported)", submitOnChange: true
         input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
+    }*/
+}
+
+def settingsPage() {
+    dynamicPage(name: "settingsPage", title: "Settings", uninstall: true) {
+        section("Main Settings") {
+            input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
+
+            if (speakers) {
+                paragraph "<small><i><b>Note:</b> If playing custom MP3 files on the speaker(s) is not working, please consider enabling the TTS-only alert in the <b>Advanced Settings</b>.</i></small>"
+            }
+
+            input "shouldSendPushNotification", "bool", title: "Send push notifications?", submitOnChange: true
+
+            if (shouldSendPushNotification) {
+                input "notifier", "capability.notification", title: "Notification Device(s)", required: true, multiple: true
+            }
+        }
+        
+        section("Additional Settings") {
+            href title: "Adhan Settings", description: "Change settings for each Adhan", page: "adhanSettingsPage"
+            href title: "Advanced Settings", description: "Change settings that may help if the app is not behaving as expected", page: "advancedSettingsPage"
+            
+            mode title: "Set for specific mode(s)"
+        }
+    }
+}
+
+def adhanSettingsPage() {
+    dynamicPage(name: "adhanSettingsPage", title: "Adhan Settings") {
+        section {
+            paragraph "Choose settings for each Adhan."
+            paragraph "You may set an adjustment for each Adhan. The adjustment (+/- in minutes) is the number of minutes to play the Adhan before/after the actual Adhan time.\n"+
+                      "<i>For example, setting an adjustment of -2 will play the Adhan 2 minutes before the actual Adhan time.</i>"
+        }
+
+        getAdhanMap().keySet().each { adhan ->
+            section("${adhan} settings", hideable: true, hidden: true) {
+                if (!ttsOnly) {
+                    input "${adhan}AdhanURL", "string", title: "Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/${adhan == "Fajr" ? "fajrAdhan" : "adhan"}.mp3"
+                }
+
+                input "${adhan}Offset", "number", title: "Time adjustment", range: "*..*"
+            }
+        }
     }
 }
 
@@ -215,4 +249,5 @@ def getMethodsMap() {
         "Spiritual Administration of Muslims of Russia": 14
     ]
 }
+
 
