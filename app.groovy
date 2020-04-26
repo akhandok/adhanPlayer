@@ -16,9 +16,19 @@ definition(
     importUrl: "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/app.groovy"
 )
 
+String getMethod() { methodOverride ?: "Islamic Society of North America" }
+String getEndpoint() { endpointOverride ?: "https://api.aladhan.com/v1/timings" }
+String getRefreshTime() { refreshTimeOverride ?:
+    // offset by 30 minutes from midnight to
+    // allow backend ample time to resolve to the new date
+    // jitter to distribute load
+    new SimpleDateFormat().format(toDate("00:${30 + new Random().nextInt(10) /* jitter */}"))
+}
+
 preferences {
     page(name: "settingsPage")
     page(name: "adhanSettingsPage")
+    page
 
     /*if (!ttsOnly) {
         section (hideable: true, hidden: true, "Adhan Audio Selections") {
@@ -40,6 +50,7 @@ preferences {
 }
 
 def settingsPage() {
+    getAdhanMap()
     dynamicPage(name: "settingsPage", title: "Settings", uninstall: true) {
         section("Main Settings") {
             input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
@@ -213,22 +224,13 @@ def log(message) {
 }
 
 def getAdhanMap() {
-    def generator = { function, track -> [ function: function, track: track ] }
-    return [
-        Fajr: generator(playFajrAdhan, fajrAdhanURL),
-        Dhuhr: generator(playDhuhrAdhan, dhuhrAdhanURL),
-        Asr: generator(playAsrAdhan, asrAdhanURL),
-        Maghrib: generator(playMaghribAdhan, maghribAdhanURL),
-        Isha: generator(playIshaAdhan, ishaAdhanURL)
-    ]
-}
-
-def getDefaultRefreshTime() {
-    // offset by 30 minutes from midnight to
-    // allow backend ample time to resolve to the new date
-    // jitter to distribute load
-    def jitter = new Random().nextInt(10)
-    return new SimpleDateFormat().format(toDate("00:${30 + jitter}"))
+    // names should mirror those from the backend
+    // https://aladhan.com/prayer-times-api#GetTimings
+    ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].collectEntries { [(it): [
+        function: "play${it}Adhan",
+        track: state["${it}AdhanURLOverride"] ?: "https://azfarandnusrat.com/files/${it == "Fajr" ? "fajrAdhan" : "adhan"}.mp3",
+        offset: state["${it}Offset"] ?: 0
+    ]]}
 }
 
 def getMethodsMap() {
@@ -249,5 +251,4 @@ def getMethodsMap() {
         "Spiritual Administration of Muslims of Russia": 14
     ]
 }
-
 
