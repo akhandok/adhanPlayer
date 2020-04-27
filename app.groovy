@@ -16,19 +16,9 @@ definition(
     importUrl: "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/app.groovy"
 )
 
-String getMethod() { methodOverride ?: "Islamic Society of North America" }
-String getEndpoint() { endpointOverride ?: "https://api.aladhan.com/v1/timings" }
-String getRefreshTime() { refreshTimeOverride ?:
-    // offset by 30 minutes from midnight to
-    // allow backend ample time to resolve to the new date
-    // jitter to distribute load
-    new SimpleDateFormat().format(toDate("00:${30 + new Random().nextInt(10) /* jitter */}"))
-}
-
 preferences {
     page(name: "settingsPage")
     page(name: "adhanSettingsPage")
-    page
 
     /*if (!ttsOnly) {
         section (hideable: true, hidden: true, "Adhan Audio Selections") {
@@ -50,8 +40,7 @@ preferences {
 }
 
 def settingsPage() {
-    getAdhanMap()
-    dynamicPage(name: "settingsPage", title: "Settings", uninstall: true) {
+    dynamicPage(name: "settingsPage", title: "Settings", install: true, uninstall: true) {
         section("Main Settings") {
             input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
 
@@ -83,10 +72,10 @@ def adhanSettingsPage() {
                       "<i>For example, setting an adjustment of -2 will play the Adhan 2 minutes before the actual Adhan time.</i>"
         }
 
-        getAdhanMap().keySet().each { adhan ->
-            section("${adhan} settings", hideable: true, hidden: true) {
+        getAdhanMap().keySet().each {
+            section("${it} settings", hideable: true, hidden: true) {
                 if (!ttsOnly) {
-                    input "${adhan}AdhanURL", "string", title: "Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/${adhan == "Fajr" ? "fajrAdhan" : "adhan"}.mp3"
+                    input getAdhanTrackVariableName(it), "string", title: "Adhan audio file URL", defaultValue: getAdhanTrack(it)
                 }
 
                 input "${adhan}Offset", "number", title: "Time adjustment", range: "*..*"
@@ -109,12 +98,17 @@ def initialize() {
 
     refreshTimings()
 
+    def defaultRefreshTime refreshTimeOverride ?:
+    // offset by 30 minutes from midnight to
+    // allow backend ample time to resolve to the new date
+    // jitter to distribute load
+    new SimpleDateFormat().format(toDate("00:${30 + new Random().nextInt(10) /* jitter */}"))
     schedule(refreshTime, refreshTimings)
 }
 
 def refreshTimings() {
     def params = [
-        uri: endpoint,
+        uri: "https://api.aladhan.com/v1/timings",
         query: [
             latitude: location.latitude,
             longitude: location.longitude,
@@ -223,32 +217,58 @@ def log(message) {
     }
 }
 
+def getAdhanOffset(adhan) {
+    getAdhanMap[adhan].offset
+}
+
+def getAdhanTrack(adhan) {
+    getAdhanMap[adhan].track
+}
+
+def getAdhanFunctionName(adhan) {
+    getAdhanMap[adhan].function
+}
+
+def getAdhanTrackVariableName(adhan) {
+    "${adhan}Track"
+}
+
+def getOffsetVariableName(adhan) {
+    "${adhan}Offset"
+}
+
 def getAdhanMap() {
-    // names should mirror those from the backend
+    // names must mirror those from the backend
     // https://aladhan.com/prayer-times-api#GetTimings
     ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].collectEntries { [(it): [
         function: "play${it}Adhan",
-        track: state["${it}AdhanURLOverride"] ?: "https://azfarandnusrat.com/files/${it == "Fajr" ? "fajrAdhan" : "adhan"}.mp3",
-        offset: state["${it}Offset"] ?: 0
+        
+        // hubitat sets these variables on the AppExecutor object (this)
+        // when the user opens the settings page for them
+        track: this[getAdhanTrackVariableName(it)] ?: "https://azfarandnusrat.com/files/${it == "Fajr" ? "fajrAdhan" : "adhan"}.mp3",
+        offset: this[getOffsetVariableName(it)] ?: 0
     ]]}
 }
 
+def getDefaultMethod() { 2 }
 def getMethodsMap() {
-    return [
-        "Shia Ithna-Ansari": 0,
-        "University of Islamic Sciences, Karachi": 1,
-        "Islamic Society of North America": 2,
-        "Muslim World League": 3,
-        "Umm Al-Qura University, Makkah": 4,
-        "Egyptian General Authority of Survey": 5,
-        "Institute of Geophysics, University of Tehran": 7,
-        "Gulf Region": 8,
-        "Kuwait": 9,
-        "Qatar": 10,
-        "Majlis Ugama Islam Singapura, Singapore": 11,
-        "Union Organization islamic de France": 12,
-        "Diyanet İşleri Başkanlığı, Turkey": 13,
-        "Spiritual Administration of Muslims of Russia": 14
+    // must mirror the "method" options from the backend
+    // https://aladhan.com/prayer-times-api#GetTimings
+    [
+        0:  "Shia Ithna-Ansari",
+        1:  "University of Islamic Sciences, Karachi",
+        2:  "Islamic Society of North America",
+        3:  "Muslim World League",
+        4:  "Umm Al-Qura University, Makkah",
+        5:  "Egyptian General Authority of Survey",
+        7:  "Institute of Geophysics, University of Tehran",
+        8:  "Gulf Region",
+        9:  "Kuwait",
+        10: "Qatar",
+        11: "Majlis Ugama Islam Singapura, Singapore",
+        12: "Union Organization islamic de France",
+        13: "Diyanet İşleri Başkanlığı, Turkey",
+        14: "Spiritual Administration of Muslims of Russia"
     ]
 }
 
