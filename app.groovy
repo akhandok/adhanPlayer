@@ -178,6 +178,7 @@ def toDate(time, offset = 0) {
     def cal = Calendar.getInstance()
     cal.set(Calendar.HOUR_OF_DAY, hour)
     cal.set(Calendar.MINUTE, min)
+    cal.set(Calendar.SECOND, 0)
     cal.getTime()
 }
 
