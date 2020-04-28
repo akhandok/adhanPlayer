@@ -73,7 +73,12 @@ def advancedSettingsPage() {
         section {
             input "method", "enum", title: "Prayer times calculation method", defaultValue: getDefaultMethod(), options: getMethodsMap().keySet()
             input "refreshTime", "time", title: "Custom time of day to refresh Adhan times"
-            input "ttsOnly", "bool", title: "Only alert via TTS? (disables Adhan audio, useful if custom MP3 audio is not supported/working)"
+            input "ttsOnly", "bool", title: "Only alert via TTS? (disables Adhan audio, useful if custom MP3 audio is not supported/working)", submitOnChange: true
+
+            if (ttsOnly) {
+                paragraph "<small><i><b>Note:</b> the spoken messages can be changed in <b>Adhan Settings</b>.</i></small>"
+            }
+
             input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
         }
     }
