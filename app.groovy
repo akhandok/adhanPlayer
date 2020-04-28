@@ -4,8 +4,6 @@
  * This app heavily depends upon (and assumes usage of): https://aladhan.com/prayer-times-api#GetTimings
  */
 
-import java.text.SimpleDateFormat
-
 definition(
     name: "Adhan Player",
     author: "Azfar Khandoker",
@@ -54,7 +52,7 @@ def adhanSettingsPage() {
                       "<i>For example, setting an adjustment of -2 will play the Adhan 2 minutes before the actual Adhan time.</i>"
         }
 
-        getAdhanMap().keySet().each { adhan ->
+        getAdhanNames().each { adhan ->
             // for some reason we have to use a named parameter here
             // because the default "it" variable seems to disappear
             // in the closure below for the section
@@ -100,6 +98,7 @@ def refreshTimings() {
         query: [
             latitude: location.latitude,
             longitude: location.longitude,
+            /* tune: CSV of integers. this is omitted because it is easier to tune locally (see: https://aladhan.com/calculation-methods ) */
             method: getMethodsMap()[method ?: getDefaultMethod()]
         ],
         contentType: "application/json",
@@ -115,16 +114,17 @@ def refreshTimings() {
 
 def responseHandler(response, _) {
     if (response.hasError()) {
-        log.error "Error in response: ${response.getErrorMessage()}"
+        log.error "Error in Adhan response: ${response.getErrorMessage()}"
         return
     }
 
     def responseData = response.getJson()
     log("Received response data: ${responseData}")
 
-    getAdhanMap().keySet().each {
-        def date = toDate(responseData.data.timings[it])
-        log("Converted ${it} prayer time to date: ${date}")
+    getAdhanNames().each {
+        def offset = getAdhanOffset(it)
+        def date = toDate(responseData.data.timings[it], offset)
+        log("Converted ${it} prayer time to date (offset by ${offset} minutes): ${date}")
         if (new Date().before(date)) {
             log("Scheduling ${it} prayer adhan...")
             runOnce(date, getAdhanFunctionName(it), [data: [name: it]])
@@ -133,18 +133,6 @@ def responseHandler(response, _) {
         }
     }
 }
-
-/**
- * these functions need to be duplicated because
- * runOnce() seems to only schedule one function
- * at any given time (i.e. the same function
- * cannot be scheduled for both Fajr and Dhuhr)
- */
-def playFajrAdhan(data)    { playAdhan(data.name) }
-def playDhuhrAdhan(data)   { playAdhan(data.name) }
-def playAsrAdhan(data)     { playAdhan(data.name) }
-def playMaghribAdhan(data) { playAdhan(data.name) }
-def playIshaAdhan(data)    { playAdhan(data.name) }
 
 def playAdhan(name) {
     def message = "Time for ${name} prayer."
@@ -171,13 +159,13 @@ def playAdhan(name) {
     }
 }
 
-def toDate(time) {
+def toDate(time, offset = 0) {
     def hour = Integer.parseInt(time.substring(0, time.indexOf(':')))
-    def min = Integer.parseInt(time.substring(time.indexOf(':') + 1))
+    def min = Integer.parseInt(time.substring(time.indexOf(':') + 1)) + offset
     def cal = Calendar.getInstance()
     cal.set(Calendar.HOUR_OF_DAY, hour)
     cal.set(Calendar.MINUTE, min)
-    return cal.getTime()
+    cal.getTime()
 }
 
 def log(message) {
@@ -187,15 +175,27 @@ def log(message) {
 }
 
 def getAdhanOffset(adhan) {
-    getAdhanMap()[adhan].offset
+    (this[getAdhanOffsetVariableName(adhan)] ?: 0) as int
 }
 
 def getAdhanTrack(adhan) {
-    getAdhanMap()[adhan].track
+    this[getAdhanTrackVariableName(adhan)] ?: "https://azfarandnusrat.com/files/${adhan == "Fajr" ? "fajrAdhan" : "adhan"}.mp3"
 }
 
+/**
+ * these functions need to be duplicated because
+ * runOnce() seems to only schedule one function
+ * at any given time (i.e. the same function
+ * cannot be scheduled for both Fajr and Dhuhr)
+ */
+def playFajrAdhan(data)    { playAdhan(data.name) }
+def playDhuhrAdhan(data)   { playAdhan(data.name) }
+def playAsrAdhan(data)     { playAdhan(data.name) }
+def playMaghribAdhan(data) { playAdhan(data.name) }
+def playIshaAdhan(data)    { playAdhan(data.name) }
+
 def getAdhanFunctionName(adhan) {
-    getAdhanMap()[adhan].function
+    "play${adhan}Adhan"
 }
 
 def getAdhanTrackVariableName(adhan) {
@@ -206,24 +206,17 @@ def getAdhanOffsetVariableName(adhan) {
     "${adhan}Offset"
 }
 
-def getAdhanMap() {
+def getAdhanNames() {
     // names must mirror those from the backend
     // https://aladhan.com/prayer-times-api#GetTimings
-    ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].collectEntries { [(it): [
-        function: "play${it}Adhan",
-        
-        // hubitat sets these variables on the AppExecutor object (this)
-        // when the user opens the settings page for them
-        track: this[getAdhanTrackVariableName(it)] ?: "https://azfarandnusrat.com/files/${it == "Fajr" ? "fajrAdhan" : "adhan"}.mp3",
-        offset: this[getAdhanOffsetVariableName(it)] ?: 0
-    ]]}
+    ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
 }
 
 def getDefaultMethod() { "Islamic Society of North America" }
 def getMethodsMap() {
     // must mirror the "method" options from the backend
     // https://aladhan.com/prayer-times-api#GetTimings
-    return [
+    [
         "Shia Ithna-Ansari": 0,
         "University of Islamic Sciences, Karachi": 1,
         "Islamic Society of North America": 2,
