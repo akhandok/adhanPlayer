@@ -39,7 +39,6 @@ def settingsPage() {
 
             href title: "Adhan Settings", description: "Change settings for each Adhan", page: "adhanSettingsPage"
             href title: "Advanced Settings", description: "" /* empty string to hide default "Click to show" description */, page: "advancedSettingsPage"
-            mode title: "Set for specific mode(s)"
         }
     }
 }
@@ -80,6 +79,8 @@ def advancedSettingsPage() {
             }
 
             input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
+
+            mode title: "Set for specific mode(s)"
         }
     }
 }
