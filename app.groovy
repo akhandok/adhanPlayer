@@ -128,15 +128,16 @@ def responseHandler(response, _) {
         log("Converted ${it} prayer time to date (offset by ${offset} minutes): ${date}")
         if (new Date().before(date)) {
             log("Scheduling ${it} prayer adhan...")
-            runOnce(date, getAdhanFunctionName(it), [data: [name: it]])
+            // see http://docs.smartthings.com/en/latest/smartapp-developers-guide/scheduling.html#run-once-in-the-future-runonce
+            runOnce(date, playAdhan, [data: [name: it], overwrite: false])
         } else {
             log("Time for ${it} prayer passed, not scheduling adhan for today")
         }
     }
 }
 
-def playAdhan(name) {
-    def message = "Time for ${name} prayer."
+def playAdhan(data) {
+    def message = "Time for ${data.name} prayer."
 
     log(message)
 
@@ -153,9 +154,9 @@ def playAdhan(name) {
         }
 
         if (!ttsOnly && it.hasCommand("playTrack")) {
-            it.playTrack(getAdhanTrack(name))
+            it.playTrack(getAdhanTrack(data.name))
         } else {
-            it.speak(getAdhanTTSMessage(name))
+            it.speak(getAdhanTTSMessage(data.name))
         }
     }
 }
@@ -175,44 +176,28 @@ def log(message) {
     }
 }
 
+def getAdhanTTSMessageVariableName(adhan) {
+    "${adhan}TTSMessage"
+}
+
 def getAdhanTTSMessage(adhan) {
     this[getAdhanTTSMessageVariableName(adhan)] ?: "It is time for prayer."
+}
+
+def getAdhanOffsetVariableName(adhan) {
+    "${adhan}Offset"
 }
 
 def getAdhanOffset(adhan) {
     (this[getAdhanOffsetVariableName(adhan)] ?: 0) as int
 }
 
-def getAdhanTrack(adhan) {
-    this[getAdhanTrackVariableName(adhan)] ?: "https://azfarandnusrat.com/files/${adhan == "Fajr" ? "fajrAdhan" : "adhan"}.mp3"
-}
-
-/**
- * these functions need to be duplicated because
- * runOnce() seems to only schedule one function
- * at any given time (i.e. the same function
- * cannot be scheduled for both Fajr and Dhuhr)
- */
-def playFajrAdhan(data)    { playAdhan(data.name) }
-def playDhuhrAdhan(data)   { playAdhan(data.name) }
-def playAsrAdhan(data)     { playAdhan(data.name) }
-def playMaghribAdhan(data) { playAdhan(data.name) }
-def playIshaAdhan(data)    { playAdhan(data.name) }
-
-def getAdhanFunctionName(adhan) {
-    "play${adhan}Adhan"
-}
-
 def getAdhanTrackVariableName(adhan) {
     "${adhan}Track"
 }
 
-def getAdhanTTSMessageVariableName(adhan) {
-    "${adhan}TTSMessage"
-}
-
-def getAdhanOffsetVariableName(adhan) {
-    "${adhan}Offset"
+def getAdhanTrack(adhan) {
+    this[getAdhanTrackVariableName(adhan)] ?: "https://azfarandnusrat.com/files/${adhan == "Fajr" ? "fajrAdhan" : "adhan"}.mp3"
 }
 
 def getAdhanNames() {
