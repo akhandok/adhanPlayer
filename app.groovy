@@ -110,7 +110,7 @@ def refreshTimings() {
         query: [
             latitude: location.latitude,
             longitude: location.longitude,
-            /* tune: CSV of integers. this is omitted because it is easier to tune locally (see: https://aladhan.com/calculation-methods ) */
+            tune: getOffsetNames().collect(this.&getAdhanOffset).join(","),
             method: getMethodsMap()[method ?: getDefaultMethod()]
         ],
         contentType: "application/json",
@@ -134,9 +134,8 @@ def responseHandler(response, _) {
     log("Received response data: ${responseData}")
 
     getAdhanNames().each {
-        def offset = getAdhanOffset(it)
-        def date = toDate(responseData.data.timings[it], offset)
-        log("Converted ${it} prayer time to date (offset by ${offset} minutes): ${date}")
+        def date = toDate(responseData.data.timings[it])
+        log("Converted ${it} prayer time to date: ${date}")
         if (new Date().before(date)) {
             log("Scheduling ${it} prayer adhan...")
             // see http://docs.smartthings.com/en/latest/smartapp-developers-guide/scheduling.html#run-once-in-the-future-runonce
@@ -172,9 +171,9 @@ def playAdhan(data) {
     }
 }
 
-def toDate(time, offset = 0) {
+def toDate(time) {
     def hour = Integer.parseInt(time.substring(0, time.indexOf(':')))
-    def min = Integer.parseInt(time.substring(time.indexOf(':') + 1)) + offset
+    def min = Integer.parseInt(time.substring(time.indexOf(':') + 1))
     def cal = Calendar.getInstance()
     cal.set(Calendar.HOUR_OF_DAY, hour)
     cal.set(Calendar.MINUTE, min)
@@ -216,6 +215,13 @@ def getAdhanNames() {
     // names must mirror those from the backend
     // https://aladhan.com/prayer-times-api#GetTimings
     ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+}
+
+def getOffsetNames() {
+    // names must mirror those from the backend
+    // (with some exceptions; see: https://github.com/islamic-network/aladhan.com/issues/18 )
+    // https://aladhan.com/calculation-methods
+    ["Imsak", "Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Sunset", "Isha", "Midnight"]
 }
 
 def getDefaultMethod() { "Islamic Society of North America" }
