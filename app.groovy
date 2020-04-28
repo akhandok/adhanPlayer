@@ -84,8 +84,14 @@ def advancedSettingsPage() {
     }
 }
 
-def installed() { initialize() }
-def updated()   { initialize() }
+def installed() {
+    initialize()
+}
+
+def updated() {
+    unschedule()
+    initialize()
+}
 
 def initialize() {
     refreshTimings()
