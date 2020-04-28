@@ -30,7 +30,7 @@ preferences {
 
     section (hideable: true, hidden: true, "Advanced Settings") {
         input "method", "enum", title: "Prayer times calculation method", defaultValue: "Islamic Society of North America", options: getMethodsMap().keySet() as List
-        input "endpoint", "string", title: "Al Adhan endpoint URL", required: true, defaultValue: "https://api.aladhan.com/v1/timings"
+        input "endpoint", "string", title: "Al Adhan endpoint URL", required: true, defaultValue: "https://api.aladhan.com/v1/timingsByAddress"
         input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: getDefaultRefreshTime()
         input "debugLoggingEnabled", "bool", title: "Enable Debug Logging", defaultValue: false
     }
@@ -57,8 +57,7 @@ def refreshTimings() {
     def params = [
         uri: endpoint,
         query: [
-            latitude: location.latitude,
-            longitude: location.longitude,
+            address: location.zipCode,
             method: getMethodsMap()[method]
         ],
         contentType: "application/json",
