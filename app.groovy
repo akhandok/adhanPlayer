@@ -22,11 +22,13 @@ preferences {
 
 def settingsPage() {
     dynamicPage(name: "settingsPage", title: "Settings", install: true, uninstall: true) {
-        section("Main Settings") {
+        section {
             input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
 
-            if (speakers) {
-                paragraph "<small><i><b>Note:</b> If playing custom MP3 files on the speaker(s) is not working, please consider enabling the TTS-only alert in the <b>Advanced Settings</b>.</i></small>"
+            def ttsOnlySpeakers = speakers.findAll { !it.hasCommand("playTrack") }
+            if (!ttsOnlySpeakers.isEmpty()) {
+                paragraph "<small><i><b>Warning!</b> It seems like </i>\"${ttsOnlySpeakers}\"<i> cannot play MP3 files and will instead just speak a message.<br />" +
+                          "Please consider enabling the TTS-only alert option in the <b>Advanced Settings</b>.</i></small>"
             }
 
             input "shouldSendPushNotification", "bool", title: "Send push notifications?", submitOnChange: true
@@ -34,11 +36,9 @@ def settingsPage() {
             if (shouldSendPushNotification) {
                 input "notifier", "capability.notification", title: "Notification Device(s)", required: true, multiple: true
             }
-        }
 
-        section("Additional Settings") {
             href title: "Adhan Settings", description: "Change settings for each Adhan", page: "adhanSettingsPage"
-            href title: "Advanced Settings", description: "Change settings that may help if the app is not behaving as expected", page: "advancedSettingsPage"
+            href title: "Advanced Settings", description: "" /* empty string to hide default "Click to show" description */, page: "advancedSettingsPage"
             mode title: "Set for specific mode(s)"
         }
     }
@@ -48,19 +48,18 @@ def adhanSettingsPage() {
     dynamicPage(name: "adhanSettingsPage", title: "Adhan Settings") {
         section {
             paragraph "Choose settings for each Adhan."
-            paragraph "You may set an adjustment for each Adhan. The adjustment (+/- in minutes) is the number of minutes to play the Adhan before/after the actual Adhan time.\n"+
+            paragraph "You may set an adjustment for each Adhan. The adjustment (+/- in minutes) is the number of minutes to play the Adhan before/after the actual Adhan time.\n" +
                       "<i>For example, setting an adjustment of -2 will play the Adhan 2 minutes before the actual Adhan time.</i>"
         }
 
-        getAdhanNames().each { adhan ->
-            // for some reason we have to use a named parameter here
-            // because the default "it" variable seems to disappear
-            // in the closure below for the section
+        getAdhanNames().each { adhan -> // for some reason we have to use a named parameter here
+                                        // because the default "it" variable seems to disappear
+                                        // in the section closure below
             section("${adhan} settings", hideable: true, hidden: true) {
                 if (!ttsOnly) {
-                    input getAdhanTrackVariableName(adhan), "string", title: "Custom Adhan audio URL"
+                    input getAdhanTrackVariableName(adhan), "string", title: "Custom Adhan MP3 URL"
                 } else {
-                    input getAdhanTTSMessageVariableName(adhan), "string", title: "TTS Message to play at Adhan time", required: true, defaultValue: "It is time for prayer."
+                    input getAdhanTTSMessageVariableName(adhan), "string", title: "Message to speak at Adhan time", required: true, defaultValue: getAdhanTTSMessage(adhan)
                 }
 
                 input getAdhanOffsetVariableName(adhan), "number", title: "Time adjustment", range: "*..*"
@@ -72,7 +71,7 @@ def adhanSettingsPage() {
 def advancedSettingsPage() {
     dynamicPage(name: "advancedSettingsPage", title: "Advanced Settings") {
         section {
-            input "method", "enum", title: "Prayer times calculation method", defaultValue: getDefaultMethod(), options: getMethodsMap().keySet() as List
+            input "method", "enum", title: "Prayer times calculation method", defaultValue: getDefaultMethod(), options: getMethodsMap().keySet()
             input "refreshTime", "time", title: "Custom time of day to refresh Adhan times"
             input "ttsOnly", "bool", title: "Only alert via TTS? (disables Adhan audio, useful if custom MP3 audio is not supported/working)"
             input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
@@ -81,7 +80,7 @@ def advancedSettingsPage() {
 }
 
 def installed() { initialize() }
-def updated() { initialize() }
+def updated()   { initialize() }
 
 def initialize() {
     refreshTimings()
@@ -177,7 +176,7 @@ def log(message) {
 }
 
 def getAdhanTTSMessage(adhan) {
-    this[getAdhanTTSMessageVariableName(adhan)]
+    this[getAdhanTTSMessageVariableName(adhan)] ?: "It is time for prayer."
 }
 
 def getAdhanOffset(adhan) {
