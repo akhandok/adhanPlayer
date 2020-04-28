@@ -59,6 +59,8 @@ def adhanSettingsPage() {
             section("${adhan} settings", hideable: true, hidden: true) {
                 if (!ttsOnly) {
                     input getAdhanTrackVariableName(adhan), "string", title: "Custom Adhan audio URL"
+                } else {
+                    input getAdhanTTSMessageVariableName(adhan), "string", title: "TTS Message to play at Adhan time", required: true, defaultValue: "It is time for prayer."
                 }
 
                 input getAdhanOffsetVariableName(adhan), "number", title: "Time adjustment", range: "*..*"
@@ -154,7 +156,7 @@ def playAdhan(name) {
         if (!ttsOnly && it.hasCommand("playTrack")) {
             it.playTrack(getAdhanTrack(name))
         } else {
-            it.speak("It is time for prayer.")
+            it.speak(getAdhanTTSMessage(name))
         }
     }
 }
@@ -172,6 +174,10 @@ def log(message) {
     if (debugLoggingEnabled) {
         log.debug message
     }
+}
+
+def getAdhanTTSMessage(adhan) {
+    this[getAdhanTTSMessageVariableName(adhan)]
 }
 
 def getAdhanOffset(adhan) {
@@ -200,6 +206,10 @@ def getAdhanFunctionName(adhan) {
 
 def getAdhanTrackVariableName(adhan) {
     "${adhan}Track"
+}
+
+def getAdhanTTSMessageVariableName(adhan) {
+    "${adhan}TTSMessage"
 }
 
 def getAdhanOffsetVariableName(adhan) {
