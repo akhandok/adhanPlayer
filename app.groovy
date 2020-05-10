@@ -1,10 +1,8 @@
 /**
  * Source: https://github.com/akhandok/adhanPlayer
  *
- * This app heavily depends upon (and assumes usage of): https://aladhan.com/prayer-times-api#GetTimings
+ * This app heavily depends upon (and assumes usage of): https://aladhan.com/prayer-times-api#GetTimingsByAddresss
  */
-
-import java.text.SimpleDateFormat
 
 definition(
     name: "Adhan Player",
@@ -12,27 +10,78 @@ definition(
     description: "Plays the Adhan on the selected speaker(s) at the appropriate prayer times.",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-    namespace: "com.azfarandnusrat.adhanPlayer"
+    namespace: "com.azfarandnusrat.adhanPlayer",
+    importUrl: "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/app.groovy"
 )
 
 preferences {
-    section {
-        input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true
-    }
+    page(name: "settingsPage")
+    page(name: "adhanSettingsPage")
+    page(name: "advancedSettingsPage")
+}
 
-    section (hideable: true, hidden: true, "Adhan Audio Selections") {
-        input "fajrAdhanURL", "string", title: "Fajr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/fajrAdhan.mp3"
-        input "dhuhrAdhanURL", "string", title: "Dhuhr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
-        input "asrAdhanURL", "string", title: "Asr Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
-        input "maghribAdhanURL", "string", title: "Maghrib Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
-        input "ishaAdhanURL", "string", title: "Isha Adhan audio file URL", required: true, defaultValue: "https://azfarandnusrat.com/files/adhan.mp3"
-    }
+def settingsPage() {
+    dynamicPage(name: "settingsPage", title: "Settings", install: true, uninstall: true) {
+        section {
+            input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
 
-    section (hideable: true, hidden: true, "Advanced Settings") {
-        input "method", "enum", title: "Prayer times calculation method", defaultValue: "Islamic Society of North America", options: getMethodsMap().keySet() as List
-        input "endpoint", "string", title: "Al Adhan endpoint URL", required: true, defaultValue: "https://api.aladhan.com/v1/timingsByAddress"
-        input "refreshTime", "time", title: "Time of day to refresh Adhan times", required: true, defaultValue: getDefaultRefreshTime()
-        input "debugLoggingEnabled", "bool", title: "Enable Debug Logging", defaultValue: false
+            def ttsOnlySpeakers = speakers.findAll { !it.hasCommand("playTrack") }
+            if (!ttsOnlySpeakers.isEmpty()) {
+                paragraph "<small><i><b>Warning!</b> It seems like </i>\"${ttsOnlySpeakers}\"<i> cannot play MP3 files and will instead just speak a message.<br />" +
+                          "Please consider enabling the TTS-only alert option in the <b>Advanced Settings</b>.</i></small>"
+            }
+
+            input "shouldSendPushNotification", "bool", title: "Send push notifications?", submitOnChange: true
+
+            if (shouldSendPushNotification) {
+                input "notifier", "capability.notification", title: "Notification Device(s)", required: true, multiple: true
+            }
+
+            href title: "Adhan Settings", description: "Change settings for each Adhan", page: "adhanSettingsPage"
+            href title: "Advanced Settings", description: "" /* empty string to hide default "Click to show" description */, page: "advancedSettingsPage"
+        }
+    }
+}
+
+def adhanSettingsPage() {
+    dynamicPage(name: "adhanSettingsPage", title: "Adhan Settings") {
+        section {
+            paragraph "Choose settings for each Adhan."
+            paragraph "You may set an adjustment for each Adhan. The adjustment (+/- in minutes) is the number of minutes to play the Adhan before/after the actual Adhan time.\n" +
+                      "<i>For example, setting an adjustment of -2 will play the Adhan 2 minutes before the actual Adhan time.</i>"
+        }
+
+        getAdhanNames().each { adhan -> // for some reason we have to use a named parameter here
+                                        // because the default "it" variable seems to disappear
+                                        // in the section closure below
+            section("${adhan} settings", hideable: true, hidden: true) {
+                if (!ttsOnly) {
+                    input getAdhanTrackVariableName(adhan), "string", title: "Custom Adhan MP3 URL"
+                } else {
+                    input getAdhanTTSMessageVariableName(adhan), "string", title: "Message to speak at Adhan time", required: true, defaultValue: getAdhanTTSMessage(adhan)
+                }
+
+                input getAdhanOffsetVariableName(adhan), "number", title: "Time adjustment", range: "*..*"
+            }
+        }
+    }
+}
+
+def advancedSettingsPage() {
+    dynamicPage(name: "advancedSettingsPage", title: "Advanced Settings") {
+        section {
+            input "method", "enum", title: "Prayer times calculation method", defaultValue: getDefaultMethod(), options: getMethodsMap().keySet()
+            input "refreshTime", "time", title: "Custom time of day to refresh Adhan times"
+            input "ttsOnly", "bool", title: "Only alert via TTS? (disables Adhan audio, useful if custom MP3 audio is not supported/working)", submitOnChange: true
+
+            if (ttsOnly) {
+                paragraph "<small><i><b>Note:</b> the spoken messages can be changed in <b>Adhan Settings</b>.</i></small>"
+            }
+
+            input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
+
+            mode title: "Set for specific mode(s)"
+        }
     }
 }
 
@@ -46,19 +95,23 @@ def updated() {
 }
 
 def initialize() {
-    state.failures = 0
-
     refreshTimings()
 
-    schedule(refreshTime, refreshTimings)
+    // offset by 30 minutes from midnight to
+    // allow backend ample time to resolve to the new date
+    // jitter to distribute load
+    def scheduleTime = refreshTime ?: toDate("00:${30 + new Random().nextInt(10) /* jitter */}")
+    log("Scheduling refreshTimings for ${scheduleTime}")
+    schedule(scheduleTime, refreshTimings)
 }
 
 def refreshTimings() {
     def params = [
-        uri: endpoint,
+        uri: "https://api.aladhan.com/v1/timingsByAddress",
         query: [
             address: location.zipCode,
-            method: getMethodsMap()[method]
+            tune: getOffsetNames().collect(this.&getAdhanOffset).join(","),
+            method: getMethodsMap()[method ?: getDefaultMethod()]
         ],
         contentType: "application/json",
         headers: [
@@ -72,81 +125,49 @@ def refreshTimings() {
 }
 
 def responseHandler(response, _) {
-    if (!response.hasError()) {
-        def responseData = response.getJson()
-        log("Received response data: ${responseData}")
+    if (response.hasError()) {
+        log.error "Error in Adhan response: ${response.getErrorMessage()}"
+        return
+    }
 
-        def timings = responseData?.data?.timings
-        def playFunctions = [
-            Fajr: playFajrAdhan,
-            Dhuhr: playDhuhrAdhan,
-            Asr: playAsrAdhan,
-            Maghrib: playMaghribAdhan,
-            Isha: playIshaAdhan
-        ]
+    def responseData = response.getJson()
+    log("Received response data: ${responseData}")
 
-        playFunctions.each { name, func ->
-            def date = toDate(timings[name])
-            log("Converted ${name} prayer time to date: ${date}")
-            if (new Date().before(date)) {
-                log("Scheduling ${name} prayer adhan...")
-                runOnce(date, func)
-            } else {
-                log("Time for ${name} prayer passed, not scheduling adhan for today")
-            }
-        }
-    } else {
-        log.error "Error refreshing timings: ${response.getErrorMessage()}"
-        if (++state.failures >= 3) {
-            log("Failed ${state.failures} times; resetting failure count and sending warning via TTS to: ${speakers}")
-            state.failures = 0
-            speak("Message from Hubitat! Multiple failed attempts to refresh Adhan timings!")
+    getAdhanNames().each {
+        def date = toDate(responseData.data.timings[it])
+        log("Converted ${it} prayer time to date: ${date}")
+        if (new Date().before(date)) {
+            log("Scheduling ${it} prayer adhan...")
+            // see http://docs.smartthings.com/en/latest/smartapp-developers-guide/scheduling.html#run-once-in-the-future-runonce
+            runOnce(date, playAdhan, [data: [name: it], overwrite: false])
+        } else {
+            log("Time for ${it} prayer passed, not scheduling adhan for today")
         }
     }
 }
 
-/**
- * these functions need to be duplicated because
- * runOnce() seems to only schedule one function
- * at any given time (i.e. the same "play" function
- * cannot be scheduled for both Fajr and Dhuhr)
- */
-def playFajrAdhan() {
-    log("Playing Fajr adhan.")
-    playTrack(fajrAdhanURL)
-}
+def playAdhan(data) {
+    def message = "Time for ${data.name} prayer."
 
-def playDhuhrAdhan() {
-    log("Playing Dhuhr adhan.")
-    playTrack(dhuhrAdhanURL)
-}
+    log(message)
 
-def playAsrAdhan() {
-    log("Playing Asr adhan.")
-    playTrack(asrAdhanURL)
-}
-
-def playMaghribAdhan() {
-    log("Playing Maghrib adhan.")
-    playTrack(maghribAdhanURL)
-}
-
-def playIshaAdhan() {
-    log("Playing Isha adhan.")
-    playTrack(ishaAdhanURL)
-}
-
-def playTrack(track) {
-    speakers.each { speaker ->
-        speaker.initialize()
-        speaker.playTrack(track)
+    if (shouldSendPushNotification) {
+        log("Sending push notification \"${message}\" to ${notifier}")
+        notifier.deviceNotification(message)
     }
-}
 
-def speak(message) {
-    speakers.each { speaker ->
-        speaker.initialize()
-        speaker.speak(message)
+    speakers.each {
+        if (it.hasCommand("initialize")) {
+            // call initialize() for Google speakers
+            // since they can get disconnected
+            it.initialize()
+        }
+
+        if (!ttsOnly && it.hasCommand("playTrack")) {
+            it.playTrack(getAdhanTrack(data.name))
+        } else {
+            it.speak(getAdhanTTSMessage(data.name))
+        }
     }
 }
 
@@ -156,7 +177,8 @@ def toDate(time) {
     def cal = Calendar.getInstance()
     cal.set(Calendar.HOUR_OF_DAY, hour)
     cal.set(Calendar.MINUTE, min)
-    return cal.getTime()
+    cal.set(Calendar.SECOND, 0)
+    cal.getTime()
 }
 
 def log(message) {
@@ -165,16 +187,48 @@ def log(message) {
     }
 }
 
-def getDefaultRefreshTime() {
-    // offset by 30 minutes from midnight to allow backend ample time
-    // to resolve to the new date
-    // jitter to distribute load
-    def jitter = new Random().nextInt(10)
-    return new SimpleDateFormat().format(toDate("00:${30 + jitter}"))
+def getAdhanTTSMessageVariableName(adhan) {
+    "${adhan}TTSMessage"
 }
 
+def getAdhanTTSMessage(adhan) {
+    this[getAdhanTTSMessageVariableName(adhan)] ?: "It is time for prayer."
+}
+
+def getAdhanOffsetVariableName(adhan) {
+    "${adhan}Offset"
+}
+
+def getAdhanOffset(adhan) {
+    (this[getAdhanOffsetVariableName(adhan)] ?: 0) as int
+}
+
+def getAdhanTrackVariableName(adhan) {
+    "${adhan}Track"
+}
+
+def getAdhanTrack(adhan) {
+    this[getAdhanTrackVariableName(adhan)] ?: "https://azfarandnusrat.com/files/${adhan == "Fajr" ? "fajrAdhan" : "adhan"}.mp3"
+}
+
+def getAdhanNames() {
+    // names must mirror those from the backend
+    // https://aladhan.com/prayer-times-api#GetTimingsByAddresss
+    ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+}
+
+def getOffsetNames() {
+    // names must mirror those from the backend
+    // (with some exceptions; see: https://github.com/islamic-network/aladhan.com/issues/18 )
+    // https://aladhan.com/calculation-methods
+    ["Imsak", "Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Sunset", "Isha", "Midnight"]
+}
+
+def getDefaultMethod() { "Islamic Society of North America" }
 def getMethodsMap() {
-    return [
+    // must mirror the "method" options from the backend
+    // https://aladhan.com/prayer-times-api#GetTimingsByAddresss
+    [
         "Shia Ithna-Ansari": 0,
         "University of Islamic Sciences, Karachi": 1,
         "Islamic Society of North America": 2,
