@@ -9,6 +9,8 @@ then a Text-To-Speech (TTS) message is played at the time of the Adhan.
 
 # How to install
 
+Video tutorial: https://youtu.be/pk_CJzPEzos
+
 Be sure you have your speakers available as devices prior to installing this app (i.e. with Chromecast Integration).
 
 https://docs.hubitat.com/index.php?title=How_to_Install_Custom_Apps
