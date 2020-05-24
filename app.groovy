@@ -157,16 +157,27 @@ def playAdhan(data) {
     }
 
     speakers.each {
-        if (it.hasCommand("initialize")) {
-            // call initialize() for Google speakers
-            // since they can get disconnected
-            it.initialize()
-        }
+        try {
+            if (it.hasCommand("initialize")) {
+                // call initialize() for Google speakers
+                // since they can get disconnected
+                it.initialize()
+            }
 
-        if (!ttsOnly && it.hasCommand("playTrack")) {
-            it.playTrack(getAdhanTrack(data.name))
-        } else {
-            it.speak(getAdhanTTSMessage(data.name))
+            if (!ttsOnly && it.hasCommand("playTrack")) {
+                it.playTrack(getAdhanTrack(data.name))
+            } else {
+                it.speak(getAdhanTTSMessage(data.name))
+            }
+        } catch (NullPointerException npe) {
+            if (it != null) {
+                log.error("Error communicating with speaker.\n" +
+                    "It is likely that Hubitat has lost connection with: " + it + ".\n" +
+                    "Please try removing the speaker from Hubitat and/or rebooting the speaker and then rediscovering it from Hubitat.\n" +
+                    "It may also help to give the speaker a reserved IP address on your network.");
+            }
+
+            throw npe;
         }
     }
 }
