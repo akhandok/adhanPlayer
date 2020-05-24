@@ -8,8 +8,8 @@ definition(
     name: "Adhan Player",
     author: "Azfar Khandoker",
     description: "Plays the Adhan on the selected speaker(s) at the appropriate prayer times.",
-    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+    iconUrl: "",
+    iconX2Url: "",
     namespace: "com.azfarandnusrat.adhanPlayer",
     importUrl: "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/app.groovy"
 )
