@@ -97,10 +97,12 @@ def updated() {
 def initialize() {
     refreshTimings()
 
+    // Default is after 2:30am to account for daylight savings time
+    // http://www.webexhibits.org/daylightsaving/b.html#:~:text=In%20the%20U.S.%2C%202%3A00,the%20fewest%20trains%20were%20running.
     // offset by 30 minutes from midnight to
     // allow backend ample time to resolve to the new date
     // jitter to distribute load
-    def scheduleTime = refreshTime ?: toDate("00:${30 + new Random().nextInt(10) /* jitter */}")
+    def scheduleTime = refreshTime ?: toDate("02:${30 + new Random().nextInt(10) /* jitter */}")
     log("Scheduling refreshTimings for ${scheduleTime}")
     schedule(scheduleTime, refreshTimings)
 }
