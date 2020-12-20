@@ -55,13 +55,17 @@ def adhanSettingsPage() {
                                         // because the default "it" variable seems to disappear
                                         // in the section closure below
             section("${adhan} settings", hideable: true, hidden: true) {
-                if (!ttsOnly) {
-                    input getAdhanTrackVariableName(adhan), "string", title: "Custom Adhan MP3 URL"
-                } else {
-                    input getAdhanTTSMessageVariableName(adhan), "string", title: "Message to speak at Adhan time", required: true, defaultValue: getAdhanTTSMessage(adhan)
-                }
+                input getAdhanDisabledVariableName(adhan), "bool", title: "Disable Adhan?", submitOnChange: true
 
-                input getAdhanOffsetVariableName(adhan), "number", title: "Time adjustment", range: "*..*"
+                if (!getAdhanDisabled(adhan)) {
+                    if (!ttsOnly) {
+                        input getAdhanTrackVariableName(adhan), "string", title: "Custom Adhan MP3 URL"
+                    } else {
+                        input getAdhanTTSMessageVariableName(adhan), "string", title: "Message to speak at Adhan time", required: true, defaultValue: getAdhanTTSMessage(adhan)
+                    }
+
+                    input getAdhanOffsetVariableName(adhan), "number", title: "Time adjustment", range: "*..*"
+                }
             }
         }
     }
@@ -135,7 +139,7 @@ def responseHandler(response, _) {
     def responseData = response.getJson()
     log("Received response data: ${responseData}")
 
-    getAdhanNames().each {
+    getAdhanNames().findAll { !getAdhanDisabled(it) }.each {
         def date = toDate(responseData.data.timings[it])
         log("Converted ${it} prayer time to date: ${date}")
         if (new Date().before(date)) {
@@ -222,6 +226,14 @@ def getAdhanTrackVariableName(adhan) {
 
 def getAdhanTrack(adhan) {
     this[getAdhanTrackVariableName(adhan)] ?: "https://azfarandnusrat.com/files/${adhan == "Fajr" ? "fajrAdhan" : "adhan"}.mp3"
+}
+
+def getAdhanDisabledVariableName(adhan) {
+    "${adhan}Disabled"
+}
+
+def getAdhanDisabled(adhan) {
+    this[getAdhanDisabledVariableName(adhan)]
 }
 
 def getAdhanNames() {
