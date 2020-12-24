@@ -5,6 +5,10 @@ Hubitat Adhan Player app designed to play the Adhan on Google Home speakers
 It should also work with other speakers as well such as Alexa. If the Adhan itself cannot be played,
 then a Text-To-Speech (TTS) message is played at the time of the Adhan.
 
+Full documentation can be found in the Hubitat Community release announcement post:
+
+https://community.hubitat.com/t/release-adhan-player-app/36321
+
 ### This app depends on the proper Zip Code being set on the Hubitat hub settings page.
 
 # How to install

@@ -3,6 +3,7 @@
  *
  * This app heavily depends upon (and assumes usage of): https://aladhan.com/prayer-times-api#GetTimingsByAddresss
  */
+import hubitat.helper.RMUtils
 
 definition(
     name: "Adhan Player",
@@ -65,6 +66,8 @@ def adhanSettingsPage() {
                     }
 
                     input getAdhanOffsetVariableName(adhan), "number", title: "Time adjustment", range: "*..*"
+
+                    input getAdhanRMRulesVariableName(adhan), "enum", title: "Select which rule(s) to run at Adhan time", options: (RMUtils.getRuleList() ?: []), multiple: true
                 }
             }
         }
@@ -153,9 +156,16 @@ def responseHandler(response, _) {
 }
 
 def playAdhan(data) {
-    def message = "Time for ${data.name} prayer."
+    def adhan = data.name
+    def message = "Time for ${adhan} prayer."
 
     log(message)
+
+    def rules = getAdhanRMRules(adhan)
+    if (rules) {
+        log("Running rules for ${adhan}: ${rules}")
+        RMUtils.sendAction(rules, "runRuleAct", app.label)
+    }
 
     if (shouldSendPushNotification) {
         log("Sending push notification \"${message}\" to ${notifier}")
@@ -171,9 +181,9 @@ def playAdhan(data) {
             }
 
             if (!ttsOnly && it.hasCommand("playTrack")) {
-                it.playTrack(getAdhanTrack(data.name))
+                it.playTrack(getAdhanTrack(adhan))
             } else {
-                it.speak(getAdhanTTSMessage(data.name))
+                it.speak(getAdhanTTSMessage(adhan))
             }
         } catch (NullPointerException npe) {
             if (it != null) {
@@ -234,6 +244,14 @@ def getAdhanDisabledVariableName(adhan) {
 
 def getAdhanDisabled(adhan) {
     this[getAdhanDisabledVariableName(adhan)]
+}
+
+def getAdhanRMRulesVariableName(adhan) {
+    "${adhan}RMRules"
+}
+
+def getAdhanRMRules(adhan) {
+    this[getAdhanRMRulesVariableName(adhan)] ?: []
 }
 
 def getAdhanNames() {
