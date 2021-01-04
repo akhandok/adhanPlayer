@@ -12,7 +12,10 @@ definition(
     iconUrl: "",
     iconX2Url: "",
     namespace: "com.azfarandnusrat.adhanPlayer",
-    importUrl: "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/app.groovy"
+    importUrl: "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/app.groovy",
+    documentationLink: "https://github.com/akhandok/adhanPlayer/blob/master/README.md",
+    singleInstance: true,
+    videoLink: "https://youtu.be/pk_CJzPEzos"
 )
 
 preferences {
