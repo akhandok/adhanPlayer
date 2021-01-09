@@ -3,7 +3,7 @@
   "author": "Azfar Khandoker",
   "version": "1.0",
   "minimumHEVersion": "0.0",
-  "licenseFile": "https://github.com/akhandok/adhanPlayer/blob/master/LICENSE",
+  "licenseFile": "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/LICENSE",
   "documentationLink": "https://github.com/akhandok/adhanPlayer/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-adhan-player-app/36321",
   "dateReleased": "2021-01-04",
