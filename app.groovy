@@ -3,6 +3,7 @@
  *
  * This app heavily depends upon (and assumes usage of): https://aladhan.com/prayer-times-api#GetTimingsByAddresss
  */
+import java.text.SimpleDateFormat
 import hubitat.helper.RMUtils
 
 definition(
@@ -91,6 +92,7 @@ def advancedSettingsPage() {
                 paragraph "<small><i><b>Note:</b> the spoken messages can be changed in <b>Adhan Settings</b>.</i></small>"
             }
 
+            input "appLabelUpdateDisabled", "bool", title: "Disable updating App Label with Adhan times?"
             input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
 
             mode title: "Set for specific mode(s)"
@@ -112,12 +114,16 @@ def initialize() {
 
     // Default is after 2:30am to account for daylight savings time
     // http://www.webexhibits.org/daylightsaving/b.html#:~:text=In%20the%20U.S.%2C%202%3A00,the%20fewest%20trains%20were%20running.
-    // offset by 30 minutes from midnight to
+    // offset by 30 minutes to
     // allow backend ample time to resolve to the new date
     // jitter to distribute load
     def scheduleTime = refreshTime ?: toDate("02:${30 + new Random().nextInt(10) /* jitter */}")
     log("Scheduling refreshTimings for ${scheduleTime}")
     schedule(scheduleTime, refreshTimings)
+
+    if (!appLabelUpdateDisabled) {
+        app.updateLabel("${app.name} <span style='color:green'>( updating Adhan times ... )</span>")
+    }
 }
 
 def refreshTimings() {
@@ -129,7 +135,7 @@ def refreshTimings() {
         ],
         contentType: "application/json",
         headers: [
-            "User-Agent": "Hubitat/${location.hub.firmwareVersionString} (${app.getLabel()} app)"
+            "User-Agent": "Hubitat/${location.hub.firmwareVersionString} (${app.name} app)"
         ]
     ]
 
@@ -148,22 +154,32 @@ def refreshTimings() {
 def responseHandler(response, _) {
     if (response.hasError()) {
         log.error "Error in Adhan response: ${response.getErrorMessage()}"
+        app.updateLabel("${app.name} <span style='color:red'>(Error detected. Check logs.)</span>")
         return
     }
 
     def responseData = response.getJson()
     log("Received response data: ${responseData}")
 
+    def newLabelPrefix = "${app.name} <span style='color:green'>("
     getAdhanNames().findAll { !getAdhanDisabled(it) }.each {
         def date = toDate(responseData.data.timings[it])
         log("Converted ${it} prayer time to date: ${date}")
+        newLabelPrefix += " ${it}-${new SimpleDateFormat("HH:mm").format(date)}"
         if (new Date().before(date)) {
             log("Scheduling ${it} prayer adhan...")
             // see http://docs.smartthings.com/en/latest/smartapp-developers-guide/scheduling.html#run-once-in-the-future-runonce
             runOnce(date, playAdhan, [data: [name: it], overwrite: false])
+
         } else {
             log("Time for ${it} prayer passed, not scheduling adhan for today")
         }
+    }
+
+    if (appLabelUpdateDisabled) {
+        app.updateLabel(app.name)
+    } else {
+        app.updateLabel(newLabelPrefix + " )</span>")
     }
 }
 
