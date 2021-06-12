@@ -27,6 +27,9 @@ preferences {
 def settingsPage() {
     dynamicPage(name: "settingsPage", title: "Settings", install: true, uninstall: true) {
         section {
+            paragraph "Location used to calculate Adhan times: ${useLatLong ? "(${location.latitude}, ${location.longitude})" : "ZIP/Postal Code ${location.zipCode}"}"
+            input "useLatLong", "bool", title: "Use Latitude and Longitude from <a href=\"/location/edit\">Hub Settings</a>?<br /><small>(use this if ZIP/Postal Codes do not work)</small>", submitOnChange: true
+
             input "speakers", "capability.speechSynthesis", title: "Speaker(s) to play Adhan", required: true, multiple: true, submitOnChange: true
 
             def ttsOnlySpeakers = speakers.findAll { !it.hasCommand("playTrack") }
@@ -119,9 +122,8 @@ def initialize() {
 
 def refreshTimings() {
     def params = [
-        uri: "https://api.aladhan.com/v1/timingsByAddress",
+        uri: "https://api.aladhan.com/v1/timings${useLatLong ? "" : "ByAddress"}",
         query: [
-            address: location.zipCode,
             tune: getOffsetNames().collect(this.&getAdhanOffset).join(","),
             method: getMethodsMap()[method ?: getDefaultMethod()]
         ],
@@ -130,6 +132,13 @@ def refreshTimings() {
             "User-Agent": "Hubitat/${location.hub.firmwareVersionString} (${app.getLabel()} app)"
         ]
     ]
+
+    if (useLatLong) {
+        params.query.latitude = location.latitude
+        params.query.longitude = location.longitude
+    } else {
+        params.query.address = location.zipCode
+    }
 
     log("Refreshing timings with parameters: ${params}")
 
