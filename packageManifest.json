@@ -12,11 +12,11 @@
       "id": "fc8a4243-f94b-4fd0-8838-92cb2a6e60bc",
       "name": "Adhan Player",
       "namespace": "com.azfarandnusrat.adhanPlayer",
-      "location": "https://raw.githubusercontent.com/akhandok/adhanPlayer/master/app.groovy",
+      "location": "https://raw.githubusercontent.com/akhandok/adhanPlayer/3.3/app.groovy",
       "required": true,
       "oauth": false,
       "primary": true,
-      "version": "3.2"
+      "version": "3.3"
     }
   ]
 }
