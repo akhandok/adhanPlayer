@@ -74,7 +74,9 @@ def adhanSettingsPage() {
 
                     input getAdhanOffsetVariableName(adhan), "number", title: "Time adjustment", range: "*..*"
 
-                    input getAdhanRMRulesVariableName(adhan), "enum", title: "Select which rule(s) to run at Adhan time", options: (RMUtils.getRuleList() ?: []), multiple: true
+                    input getAdhanRMRulesVariableName(adhan), "enum", title: "Select which rule(s) (Rule Machine 4.1 and below) to run at Adhan time", options: (RMUtils.getRuleList() ?: []), multiple: true
+                    
+                    input getAdhanRM5RulesVariableName(adhan), "enum", title: "Select which rule(s) (Rule Machine 5.0) to run at Adhan time", options: (RMUtils.getRuleList('5.0') ?: []), multiple: true
                 }
             }
         }
@@ -194,6 +196,12 @@ def playAdhan(data) {
         log("Running rules for ${adhan}: ${rules}")
         RMUtils.sendAction(rules, "runRuleAct", app.label)
     }
+    
+    rules = getAdhanRM5Rules(adhan)
+    if (rules) {
+        log("Running RM 5.0 rules for ${adhan}: ${rules}")
+        RMUtils.sendAction(rules, "runRuleAct", app.label, '5.0')
+    }
 
     if (shouldSendPushNotification) {
         log("Sending push notification \"${message}\" to ${notifier}")
@@ -280,6 +288,14 @@ def getAdhanRMRulesVariableName(adhan) {
 
 def getAdhanRMRules(adhan) {
     this[getAdhanRMRulesVariableName(adhan)] ?: []
+}
+
+def getAdhanRM5RulesVariableName(adhan) {
+    "${adhan}RM5Rules"
+}
+
+def getAdhanRM5Rules(adhan) {
+    this[getAdhanRM5RulesVariableName(adhan)] ?: []
 }
 
 def getAdhanNames() {
