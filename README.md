@@ -9,7 +9,7 @@ Full documentation can be found in the Hubitat Community release announcement po
 
 https://community.hubitat.com/t/release-adhan-player-app/36321
 
-### This app depends on the proper Zip Code being set on the Hubitat hub settings page.
+### This app depends on the proper Latitude and Longitude being set on the Hubitat hub settings page.
 
 # How to install
 
