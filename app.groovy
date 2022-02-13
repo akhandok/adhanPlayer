@@ -21,6 +21,7 @@ preferences {
     page(name: "settingsPage")
     page(name: "adhanSettingsPage")
     page(name: "advancedSettingsPage")
+    page(name: "testAdhanScheduledPage")
 }
 
 def settingsPage() {
@@ -97,8 +98,23 @@ def advancedSettingsPage() {
 
             input "appLabelUpdateDisabled", "bool", title: "Disable updating App Label with Adhan times?"
             input "debugLoggingEnabled", "bool", title: "Enable Debug Logging"
+            
+            href title: "Schedule a test Adhan ...", description: "" /* empty string to hide default "Click to show" description */, page: "testAdhanScheduledPage"
 
-            mode title: "Set for specific mode(s)"
+            input "modes", "mode", title: "Set for specific mode(s)", multiple: true
+        }
+    }
+}
+
+def testAdhanScheduledPage() {
+    def delayInSeconds = 3
+    def cal = Calendar.getInstance()
+    cal.add(Calendar.SECOND, delayInSeconds);
+    def adhan = getAdhanNames()[2] // asr, arbitrary choice
+    runOnce(cal.getTime(), playAdhan, [data: [name: adhan], overwrite: false])
+    dynamicPage(name: "testAdhanScheduledPage", title: "Test ${adhan} Adhan scheduled") {
+        section {
+            paragraph "${adhan} Adhan playing in ${delayInSeconds} seconds ..."
         }
     }
 }
@@ -168,6 +184,11 @@ def playAdhan(data) {
     def message = "Time for ${adhan} prayer."
 
     log(message)
+    
+    if (modes && !(location.mode in modes)) {
+        log("Skipping ${adhan} prayer because hub is in ${location.mode} mode, which is not in the list of modes from Advanced Settings: ${modes}")
+        return
+    }
 
     def rules = getAdhanRMRules(adhan)
     if (rules) {
