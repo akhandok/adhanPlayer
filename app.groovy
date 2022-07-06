@@ -79,6 +79,8 @@ def adhanSettingsPage() {
                     input getAdhanRMRulesVariableName(adhan), "enum", title: "Select which rule(s) (Rule Machine 4.1 and below) to run at Adhan time", options: (RMUtils.getRuleList() ?: []), multiple: true
                     
                     input getAdhanRM5RulesVariableName(adhan), "enum", title: "Select which rule(s) (Rule Machine 5.0 and above) to run at Adhan time", options: (RMUtils.getRuleList('5.0') ?: []), multiple: true
+                    
+                    input getAdhanSpeakersVariableName(adhan), "capability.speechSynthesis", title: "Speaker(s) override for ${adhan} Adhan", multiple: true
                 }
             }
         }
@@ -207,7 +209,7 @@ def playAdhan(data) {
         notifier.deviceNotification(message)
     }
 
-    speakers.each {
+    (getAdhanSpeakers(adhan) ?: speakers).each {
         try {
             if (it.hasCommand("initialize")) {
                 // call initialize() for Google speakers
@@ -295,6 +297,14 @@ def getAdhanRM5RulesVariableName(adhan) {
 
 def getAdhanRM5Rules(adhan) {
     this[getAdhanRM5RulesVariableName(adhan)] ?: []
+}
+
+def getAdhanSpeakersVariableName(adhan) {
+    "${adhan}Speakers"
+}
+
+def getAdhanSpeakers(adhan) {
+    this[getAdhanSpeakersVariableName(adhan)] ?: []
 }
 
 def getAdhanNames() {
